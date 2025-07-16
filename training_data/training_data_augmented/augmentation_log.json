@@ -1,0 +1,14 @@
+{
+  "original_samples": 680,
+  "generated_samples": 27200,
+  "total_samples": 27880,
+  "augmentations_per_sample": 40,
+  "input_folder": "training_data_classified",
+  "output_folder": "training_data_augmented",
+  "classes": [
+    "note",
+    "line",
+    "liftoff",
+    "blank"
+  ]
+}

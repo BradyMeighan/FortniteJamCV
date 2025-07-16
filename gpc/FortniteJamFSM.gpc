@@ -1,0 +1,244 @@
+#pragma METAINFO("Fortnite Jam FSM", 1, 0, "FortniteBotDev")
+
+/*
+Fortnite Jam FSM - GTuner Integration
+====================================
+
+This script receives FSM button states from the GTuner live analysis script
+and controls the corresponding buttons for each lane.
+
+The FSM handles all timing logic, this script just presses/releases buttons
+based on the received button states.
+
+Lane Mappings:
+- Lane 1: D-Pad Left  (BUTTON_12)
+- Lane 2: D-Pad Right (BUTTON_13)  
+- Lane 3: X           (BUTTON_17)
+- Lane 4: D-Pad Up    (BUTTON_10)
+- Lane 5: B           (BUTTON_15)
+
+Controls:
+- D-Pad Down (BUTTON_11): Toggle note pressing ON/OFF
+- L2+R2 (BUTTON_8+BUTTON_5): Emergency stop
+*/
+
+// Constants
+#define INPUT_DELAY 6  // 10ms delay before button presses
+
+// Global control variables
+bool note_pressing_enabled = FALSE;
+bool dpad_down_was_pressed = FALSE;
+bool emergency_stop_active = FALSE;
+
+// Lane button mappings (updated per user request)
+int lane_buttons[5] = {BUTTON_12, BUTTON_13, BUTTON_17, BUTTON_14, BUTTON_15};
+
+// Current button states from FSM
+int current_button_states[5] = {0, 0, 0, 0, 0};
+int previous_button_states[5] = {0, 0, 0, 0, 0};
+int persistent_button_states[5] = {0, 0, 0, 0, 0};  // Persistent between GCV updates
+
+// Button press tracking for combo triggers
+bool button_press_pending[5] = {FALSE, FALSE, FALSE, FALSE, FALSE};
+
+// Performance tracking
+int total_button_presses = 0;
+int local_frame_counter = 0;
+int gcv_update_counter = 0;
+
+main {
+    // Increment local frame counter (runs at 1000fps)
+    local_frame_counter++;
+    
+    // Check for toggle input (D-Pad Down)
+    if(get_val(BUTTON_11)) {
+        if(!dpad_down_was_pressed) {
+            note_pressing_enabled = !note_pressing_enabled;
+            dpad_down_was_pressed = TRUE;
+            
+            if(note_pressing_enabled) {
+                printf("Fortnite Jam FSM: Note pressing ENABLED");
+            } else {
+                printf("Fortnite Jam FSM: Note pressing DISABLED");
+                // Release all buttons and reset state
+                int j;
+                for(j = 0; j < 5; j++) {
+                    set_val(lane_buttons[j], 0);
+                    current_button_states[j] = 0;
+                    previous_button_states[j] = 0;
+                    persistent_button_states[j] = 0;
+                    button_press_pending[j] = FALSE;
+                }
+            }
+        }
+    } else {
+        dpad_down_was_pressed = FALSE;
+    }
+    
+    // Emergency stop (L2+R2)
+    if(get_val(BUTTON_8) && get_val(BUTTON_5)) {
+        if(!emergency_stop_active) {
+            note_pressing_enabled = FALSE;
+            emergency_stop_active = TRUE;
+            printf("EMERGENCY STOP: Note pressing disabled");
+            
+            // Release all buttons and reset state
+            int k;
+            for(k = 0; k < 5; k++) {
+                set_val(lane_buttons[k], 0);
+                current_button_states[k] = 0;
+                previous_button_states[k] = 0;
+                persistent_button_states[k] = 0;
+                button_press_pending[k] = FALSE;
+            }
+        }
+    } else {
+        emergency_stop_active = FALSE;
+    }
+    
+    // GCV data processing - ONLY when gcv_ready() (60fps timing)
+    if(gcv_ready()) {
+        gcv_update_counter++;
+        
+        // Read button states from FSM (bytes 0-4)
+        uint8 lane1_state = gcv_read(0);
+        uint8 lane2_state = gcv_read(1);
+        uint8 lane3_state = gcv_read(2);
+        uint8 lane4_state = gcv_read(3);
+        uint8 lane5_state = gcv_read(4);
+        uint8 system_ready = gcv_read(5);
+        uint8 frame_counter_low = gcv_read(6);
+        uint8 frame_counter_high = gcv_read(7);
+        
+        // Update current button states
+        current_button_states[0] = lane1_state;
+        current_button_states[1] = lane2_state;
+        current_button_states[2] = lane3_state;
+        current_button_states[3] = lane4_state;
+        current_button_states[4] = lane5_state;
+        
+        // Update persistent button states (these maintain between GCV updates)
+        persistent_button_states[0] = lane1_state;
+        persistent_button_states[1] = lane2_state;
+        persistent_button_states[2] = lane3_state;
+        persistent_button_states[3] = lane4_state;
+        persistent_button_states[4] = lane5_state;
+        
+        // Update button state tracking (removed debug spam)
+        if(note_pressing_enabled) {
+            int lane_idx;
+            for(lane_idx = 0; lane_idx < 5; lane_idx++) {
+                int current = current_button_states[lane_idx];
+                int previous = previous_button_states[lane_idx];
+                
+                // Count button transitions and trigger delayed press
+                if(current > 0 && previous == 0) {
+                    total_button_presses++;
+                    button_press_pending[lane_idx] = TRUE;
+                    
+                    // Trigger delayed button press combo
+                    if(lane_idx == 0) combo_run(cDelayedPress1);
+                    else if(lane_idx == 1) combo_run(cDelayedPress2);
+                    else if(lane_idx == 2) combo_run(cDelayedPress3);
+                    else if(lane_idx == 3) combo_run(cDelayedPress4);
+                    else if(lane_idx == 4) combo_run(cDelayedPress5);
+                } else if(current == 0 && previous > 0) {
+                    // Button released
+                    button_press_pending[lane_idx] = FALSE;
+                    set_val(lane_buttons[lane_idx], 0);
+                }
+                
+                // Update previous state for next comparison
+                previous_button_states[lane_idx] = current;
+            }
+        }
+    }
+    
+    // Button management - runs every loop iteration (1000fps)
+    // Handle continuous button holds (without delay, since delay is handled by combos)
+    if(note_pressing_enabled) {
+        int btn_idx;
+        for(btn_idx = 0; btn_idx < 5; btn_idx++) {
+            // Only handle continuous holds, not initial presses (those are handled by combos)
+            if(persistent_button_states[btn_idx] > 0 && !button_press_pending[btn_idx]) {
+                set_val(lane_buttons[btn_idx], 100);
+            } else if(persistent_button_states[btn_idx] == 0) {
+                set_val(lane_buttons[btn_idx], 0);
+            }
+        }
+    } else {
+        // When disabled, ensure all buttons are released
+        int btn_idx2;
+        for(btn_idx2 = 0; btn_idx2 < 5; btn_idx2++) {
+            set_val(lane_buttons[btn_idx2], 0);
+            persistent_button_states[btn_idx2] = 0;  // Reset persistent states too
+            button_press_pending[btn_idx2] = FALSE;
+        }
+    }
+    
+    // Performance reporting (every 5 seconds to reduce spam)
+    if(local_frame_counter >= 5000) {  
+        printf("Status: %s | Presses: %d | GCV Updates: %d", 
+               note_pressing_enabled ? "ACTIVE" : "DISABLED", 
+               total_button_presses, gcv_update_counter);
+        local_frame_counter = 0;
+        gcv_update_counter = 0;
+    }
+}
+
+// Delayed button press combos for each lane
+combo cDelayedPress1 {
+    wait(INPUT_DELAY);
+    set_val(BUTTON_12, 100);
+    button_press_pending[0] = FALSE;
+}
+
+combo cDelayedPress2 {
+    wait(INPUT_DELAY);
+    set_val(BUTTON_13, 100);
+    button_press_pending[1] = FALSE;
+}
+
+combo cDelayedPress3 {
+    wait(INPUT_DELAY);
+    set_val(BUTTON_17, 100);
+    button_press_pending[2] = FALSE;
+}
+
+combo cDelayedPress4 {
+    wait(INPUT_DELAY);
+    set_val(BUTTON_14, 100);
+    button_press_pending[3] = FALSE;
+}
+
+combo cDelayedPress5 {
+    wait(INPUT_DELAY);
+    set_val(BUTTON_15, 100);
+    button_press_pending[4] = FALSE;
+}
+
+init {
+    printf("Fortnite Jam FSM - GTuner Integration - READY");
+    printf("Press D-Pad Down to toggle note pressing");
+    printf("Hold L2+R2 for emergency stop");
+    printf("Lane mappings: L1=DLeft, L2=DRight, L3=X, L4=Y, L5=B");
+    printf("Input delay: %dms", INPUT_DELAY);
+    
+    // Initialize variables
+    note_pressing_enabled = FALSE;
+    dpad_down_was_pressed = FALSE;
+    emergency_stop_active = FALSE;
+    total_button_presses = 0;
+    local_frame_counter = 0;
+    gcv_update_counter = 0;
+    
+    // Initialize button states
+    int init_idx;
+    for(init_idx = 0; init_idx < 5; init_idx++) {
+        current_button_states[init_idx] = 0;
+        previous_button_states[init_idx] = 0;
+        persistent_button_states[init_idx] = 0;
+        button_press_pending[init_idx] = FALSE;
+        set_val(lane_buttons[init_idx], 0);
+    }
+} 
