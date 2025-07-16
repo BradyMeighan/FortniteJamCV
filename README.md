@@ -1,5 +1,9 @@
 # Fortnite Jam - AI-Powered Game Assistant
 
+[![Watch the Demo](https://img.youtube.com/vi/RQnHvn-A6zA/maxresdefault.jpg)](https://youtu.be/RQnHvn-A6zA)
+
+**▶️ [Watch the Demo on YouTube](https://youtu.be/RQnHvn-A6zA)**
+
 An AI-powered system that uses computer vision to detect notes in Fortnite Jam and automatically presses the corresponding buttons using a Titan Two controller adapter.
 
 ## 🎮 Overview
@@ -70,16 +74,15 @@ fortnite-jam/
 
 1. **Start the live analysis:**
    - Configure your video input as 1920x1080p @ 60 fps
-   - Start the Gtuner Live Analysis FSM file in the computer visions ection of GTuner IV
+   - Start the Gtuner Live Analysis FSM file in the Computer Vision section of GTuner IV
 
 2. **Configure your game:**
-   - Go to Settings > Game > Festival and reduce latency to start out. Try 0 and adjsut based on your avergae input altency at the end of a song. (Mine is at -150 and im acheieving 95% perfect notes with very low latency. If you need to adjsut this further than what is allwoed byt he agme there is a mnaul altency value you can adjust inthe gpc script called INPUT_DELAY)
-   - Ensure the game is visible and not minimized
+   - Go to Settings > Game > Festival and reduce latency to start out. Try 0 and adjsut based on your avergae input latency at the end of a song. (Mine is at -150 and im acheieving 95% perfect notes with very low latency. If you need to adjsut this further than what is allwoed by the game there is a manual latency value you can adjust in the gpc script called INPUT_DELAY)
 
 3. **Start playing:**
    - The system will automatically detect notes
-   - After loading the script into your Titan Two you must click dpad down to start acceptign button preses fromt eh comptuer vision script
-   - It is best practice to nto rpess this until you see a blank game or right before the ntoes start coming to prevent button spamming while the game is transitioning.
+   - After loading the script into your Titan Two you must click Dpad Down to start accepting button preses from the computer vision script
+   - It is best practice to not press this until you see a blank game or right before the notes start coming to prevent button spamming while the game is transitioning.
    - Monitor the console for detection feedback
 
 ## 🧠 How It Works
