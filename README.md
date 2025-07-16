@@ -1,4 +1,4 @@
-# Fortnite Jam - AI-Powered Game Assistant
+# Fortnite Jam - Computer Vision
 
 [![Watch the Demo](https://img.youtube.com/vi/RQnHvn-A6zA/maxresdefault.jpg)](https://youtu.be/RQnHvn-A6zA)
 
